@@ -35,9 +35,15 @@ exports.getAllOrders = async (req, res) => {
 
     const orders = await query;
 
-    const orderLength = orders.reduce((acc, cur) => (acc += 1), 0);
+    const results = orders.reduce((acc, cur) => (acc += 1), 0);
 
-    return res.json({ status: 'success', orderLength, orders });
+    return res.json({
+      status: 'success',
+      results,
+      data: {
+        orders,
+      },
+    });
   } catch (err) {
     res.status(404).json({
       status: 'fail',
@@ -48,7 +54,6 @@ exports.getAllOrders = async (req, res) => {
 
 exports.getOrder = async (req, res) => {
   try {
-    await authenticateOrder(req, res, 'user');
     const { id } = req.params;
     const order = await orderModel.findById(id);
 
@@ -67,7 +72,6 @@ exports.getOrder = async (req, res) => {
 
 exports.createOrder = async (req, res) => {
   try {
-    await authenticateUser(req, res);
     const body = req.body;
     const total_price = body.items.reduce((prev, curr) => {
       prev += curr.price * curr.quantity;
@@ -117,7 +121,6 @@ exports.updateOrder = async (req, res) => {
 
 exports.deleteOrder = async (req, res) => {
   try {
-    await authenticateUser(req, res);
     await authenticateOrder(req, res, 'admin');
     const { id } = req.params;
 

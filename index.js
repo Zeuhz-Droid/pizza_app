@@ -1,26 +1,67 @@
 const express = require('express');
-const mongoose = require('mongoose');
+const passport = require('passport');
+const path = require('path');
+const expressSession = require('express-session');
 const orderRouter = require('./routes/orderRoutes');
-const userRouter = require('./routes/userRoutes');
+const authRouter = require('./routes/authRoutes');
+const orderController = require('./controllers/orderController');
 
-const PORT = 3334;
+require('dotenv').config();
+require('./config/database')();
+require('./utilities/jwt-authenticate');
+
+const PORT = process.env.PORT || '3000';
 
 const app = express();
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
-app.use('/orders', orderRouter);
-app.use('/users', userRouter);
+const session = {
+  secret: process.env.SESSION_SECRET,
+  cookie: {},
+  resave: false,
+  saveUninitialized: false,
+};
 
-mongoose.connect('mongodb://localhost:27017');
+if (app.get('env') === 'production') {
+  // Serve secure cookies, requires HTTPS
+  session.cookie.secure = true;
+}
 
-mongoose.connection.on('connected', () => {
-  console.log('Connected to MongoDB Successfully');
+app.use(expressSession(session));
+app.use(passport.initialize());
+app.use(passport.session());
+
+passport.serializeUser((user, done) => {
+  done(null, user);
 });
 
-mongoose.connection.on('error', (err) => {
-  console.log('An error occurred while connecting to MongoDB');
-  console.log(err);
+passport.deserializeUser((user, done) => {
+  done(null, user);
+});
+
+app.use('/', authRouter);
+app.use(
+  '/orders',
+  passport.authenticate('auth0', { failureRedirect: '/login' }),
+  orderRouter
+);
+// app.use('/users', userRouter);
+app.get('/', (req, res) => {
+  res.send('welcome to orders API');
+});
+
+// GLOBAL ERROR HANDLER
+app.use((err, req, res, next) => {
+  err.statusCode = err.statusCode || 500;
+  err.status = err.status || 'error';
+
+  res.status(err.statusCode).json({
+    status: err.status,
+    message: err.message,
+    error: err,
+  });
 });
 
 app.listen(PORT, () => {
